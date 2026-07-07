@@ -55,8 +55,15 @@ export interface ReportRequest {
 }
 
 export const fetchReport = async (payload: ReportRequest): Promise<ReportResponse> => {
-  const { data } = await apiClient.post<ReportResponse>('/api/report', payload);
-  return data;
+  try {
+    const { data } = await apiClient.post<ReportResponse>('/api/report', payload);
+    return data;
+  } catch (error: any) {
+    if (error.response?.data?.detail) {
+      throw new Error(error.response.data.detail);
+    }
+    throw new Error(error.message || 'An unexpected error occurred');
+  }
 };
 
 export { API_BASE_URL };

@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { fetchReport, type ReportResponse, type ReportRequest } from './services/api';
+import { Toaster, toast } from 'sonner';
 
 import { AppHeader } from './components/AppHeader';
 import { AppFooter } from './components/AppFooter';
@@ -30,6 +31,9 @@ function App() {
 
   const mutation = useMutation<ReportResponse, Error, ReportRequest>({
     mutationFn: fetchReport,
+    onError: (err) => {
+      toast.error(err.message, { duration: 5000 });
+    }
   });
 
   // Stable setter callbacks passed down to the memoized form so it never
@@ -68,6 +72,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+      <Toaster position="top-right" richColors />
       <AppHeader />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
