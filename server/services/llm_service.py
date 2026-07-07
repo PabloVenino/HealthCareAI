@@ -126,10 +126,10 @@ def get_llm_provider() -> LLMProvider:
     model = os.environ.get("MODEL")
 
     if provider_name == "openai":
-        return OpenAIProvider(api_key, model | "gpt-4o")
+        return OpenAIProvider(api_key, model or "gpt-4o")
     elif provider_name == "gemini":
-        return GeminiProvider(api_key, model | "gemini-2.5-flash")
+        return GeminiProvider(api_key, model or "gemini-2.5-flash")
     elif provider_name == "anthropic":
-        return AnthropicProvider(api_key, model | "claude-3-5-sonnet-20241022")
+        return AnthropicProvider(api_key, model or "claude-3-5-sonnet-20241022")
         
     raise ValueError("You must provide a valid AI Provider and API Key")
