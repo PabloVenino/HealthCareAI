@@ -1,5 +1,9 @@
 import React from 'react';
 import { Calendar, MapPin, Search, Loader2, Compass } from 'lucide-react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import { parseISO, format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export interface ReportControlsFormProps {
   startDate: string;
@@ -44,24 +48,34 @@ function ReportControlsFormComponent({
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-2">Data Inicial</label>
             <div className="relative">
-              <Calendar size={14} className="absolute left-3 top-3 text-slate-400" />
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => onStartDateChange(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl text-slate-900 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
+              <Calendar size={14} className="absolute left-3 top-3 text-slate-400 z-10 pointer-events-none" />
+              <DatePicker
+                selected={startDate ? parseISO(startDate) : null}
+                onChange={(date) => onStartDateChange(date ? format(date, 'yyyy-MM-dd') : '')}
+                dateFormat="dd/MM/yyyy"
+                locale={ptBR}
+                showMonthDropdown
+                showYearDropdown
+                dropdownMode="select"
+                wrapperClassName="w-full"
+                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl text-slate-900 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 transition relative z-0"
               />
             </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-2">Data Final</label>
             <div className="relative">
-              <Calendar size={14} className="absolute left-3 top-3 text-slate-400" />
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => onEndDateChange(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl text-slate-900 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
+              <Calendar size={14} className="absolute left-3 top-3 text-slate-400 z-10 pointer-events-none" />
+              <DatePicker
+                selected={endDate ? parseISO(endDate) : null}
+                onChange={(date) => onEndDateChange(date ? format(date, 'yyyy-MM-dd') : '')}
+                dateFormat="dd/MM/yyyy"
+                locale={ptBR}
+                showMonthDropdown
+                showYearDropdown
+                dropdownMode="select"
+                wrapperClassName="w-full"
+                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl text-slate-900 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 transition relative z-0"
               />
             </div>
           </div>

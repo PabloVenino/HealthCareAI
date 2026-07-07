@@ -25,8 +25,8 @@ const UF_LABELS: Record<string, string> = {
 };
 
 function App() {
-  const [startDate, setStartDate] = useState('2025-05-01');
-  const [endDate, setEndDate] = useState('2025-10-30');
+  const [startDate, setStartDate] = useState('2019-01-01');
+  const [endDate, setEndDate] = useState('2019-12-31');
   const [uf, setUf] = useState('SP');
 
   const mutation = useMutation<ReportResponse, Error, ReportRequest>({
