@@ -82,6 +82,17 @@ Desktop.ini
 .cache/
 
 ###############################################################################
+# Data (generated / derived — do NOT version)
+###############################################################################
+
+# Processed datasets — reproducible from data/raw/
+data/processed/
+
+# DuckDB database files — generated at runtime
+*.db
+*.db.wal
+
+###############################################################################
 # Local configuration
 ###############################################################################
 
