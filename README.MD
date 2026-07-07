@@ -16,8 +16,7 @@ An AI Agent capable of generating structured epidemiological reports by combinin
 6. [Metric Definitions](#metric-definitions)
 7. [Project Structure](#project-structure)
 8. [Setup & Running](#setup--running)
-9. [Mock Data Generator](#mock-data-generator)
-10. [Design Principles](#design-principles)
+9. [Design Principles](#design-principles)
 
 ---
 
@@ -45,8 +44,11 @@ An AI Agent capable of generating structured epidemiological reports by combinin
 │    SQL Tool   Metrics   Chart Tool          │
 │         │    Tool  │          │             │
 │         ▼          ▼          ▼             │
-│      DuckDB    Pandas     Matplotlib        │
-│    (srag view)                              │
+│      DuckDB    Pandas     Pandas            │
+│    (srag view)         (JSON records)       │
+│                              │              │
+│                    React Recharts           │
+│                   (renders in browser)      │
 │                                             │
 │    News Tool ──────► Google News RSS        │
 │                                             │
@@ -65,7 +67,7 @@ The architecture follows a **strict separation of concerns**:
 | Layer | Responsibility |
 |-------|----------------|
 | Frontend | Display — no business logic |
-| FastAPI | HTTP contract, request validation |
+| FastAPI | HTTP contract, request validation, error handling middleware |
 | LangGraph | Orchestration, state management |
 | Tools | Single-purpose, deterministic computation |
 | DuckDB | Analytical SQL over the SRAG dataset |
@@ -102,15 +104,16 @@ Request received
        │
        ▼
 ┌─────────────┐
-│  Charts     │  Generate Matplotlib PNG charts:
+│  Charts     │  Query DuckDB and build Pandas DataFrames:
 │    Node     │  · Daily cases (last 30 days)
 │             │  · Monthly cases (last 12 months)
+│             │  Returns JSON records — Recharts renders in browser.
 └──────┬──────┘
        │
        ▼
 ┌─────────────┐
 │  News Node  │  Search Google News RSS for recent SRAG/Gripe/COVID-19
-│             │  articles. Falls back to mock articles if feed is unavailable.
+│             │  articles. Returns structured error if feed is unavailable.
 └──────┬──────┘
        │
        ▼
@@ -151,20 +154,21 @@ Never generates explanations. Returns structured dicts only.
 
 ### `chart_tool.py` — Chart Tool
 
-**Responsibility**: Generate two Matplotlib PNG charts for the requested period.
+**Responsibility**: Query DuckDB and return time-series data as serialized Pandas DataFrames for the frontend to render.
 
-- **Daily chart**: Case counts for each of the last 30 days relative to `end_date`.
-- **Monthly chart**: Aggregated case counts per calendar month for the last 12 months.
-- Saves charts to `server/static/charts/` with timestamped filenames.
-- Returns `{"daily_chart": "<url>", "monthly_chart": "<url>"}`.
+- **Daily chart data**: Case counts for each of the last 30 days relative to `end_date`.
+- **Monthly chart data**: Aggregated case counts per calendar month for the last 12 months.
+- Returns structured JSON records — no image files are generated server-side.
+- The React frontend renders these datasets as interactive charts using **Recharts**.
+- Returns `{"daily_chart": [{"DT_NOTIFIC": ..., "case_count": ...}], "monthly_chart": [{"month": ..., "case_count": ...}]}`.
 
 ### `news_tool.py` — News Tool
 
 **Responsibility**: Retrieve recent contextual health news without AI summarization.
 
 - Queries Google News RSS for queries like `"SRAG" OR "Gripe" OR "COVID-19"`.
-- Returns a list of `{title, date, url, summary}` objects (summary is the RSS description).
-- Falls back to a set of static mock articles if the network request fails.
+- Returns a list of `{title, date, url, summary}` objects (summary is sourced from the RSS feed).
+- On failure, returns a structured `{"success": false, "reason": "..."}` dict — **no mock/fabricated articles are ever returned**.
 - The news is used **only** to help the LLM explain metric trends — not to compute any value.
 
 ### `report_tool.py` — Report Tool
@@ -199,9 +203,12 @@ DuckDB view `srag`
       │                     hospitalized_vaccination_rate,
       │                     case_increase_rate
       │
-      └──► Chart Tool ──► daily/monthly Matplotlib PNGs
+      └──► Chart Tool ──► daily/monthly Pandas DataFrames
+                          (serialized as JSON records)
 
-Google News RSS ──► News Tool ──► list of news articles
+JSON chart data ──► React frontend ──► Recharts renders charts in browser
+
+Google News RSS ──► News Tool ──► list of news articles (or structured error)
 
 All above ──► Report Tool ──► structured context string
                                     │
@@ -290,12 +297,15 @@ Compares the most recent 30-day window against the preceding 30-day window relat
 ```text
 HealthCareAI/
 ├── app/                          # React Frontend (Vite, TypeScript, Tailwind v3)
+│   ├── Dockerfile
 │   └── src/
 │       ├── App.tsx               # Main application component
-│       ├── services/api.ts       # API client and TypeScript types
-│       └── assets/               # Static assets
+│       ├── components/           # UI components (MetricCard, ChartsPanel, NewsPanel, etc.)
+│       ├── services/             # API client and TypeScript types
+│       └── utils/                # Shared frontend utilities
 │
 ├── server/                       # FastAPI Backend
+│   ├── Dockerfile
 │   ├── agent/
 │   │   ├── graph.py              # LangGraph StateGraph definition
 │   │   ├── nodes.py              # One function per pipeline node
@@ -315,14 +325,13 @@ HealthCareAI/
 │   ├── tools/
 │   │   ├── sql_tool.py           # Read-only SQL execution with guardrails
 │   │   ├── metrics_tool.py       # Epidemiological metric calculation
-│   │   ├── chart_tool.py         # Matplotlib chart generation
+│   │   ├── chart_tool.py         # DuckDB → Pandas chart data (JSON records for Recharts)
 │   │   ├── news_tool.py          # Google News RSS search
 │   │   └── report_tool.py        # LLM context assembly
 │   ├── utils/
-│   │   ├── logger.py             # Shared logger factory
-│   │   └── generate_mock_data.py # Synthetic dataset generator
-│   ├── static/charts/            # Generated chart PNG files
-│   ├── main.py                   # FastAPI app factory and startup
+│   │   └── logger.py             # Shared logger factory
+│   ├── static/charts/            # Reserved directory (charts returned as JSON, not saved as PNG)
+│   ├── main.py                   # FastAPI app factory, middleware, and startup hooks
 │   └── requirements.txt
 │
 ├── data/
@@ -330,9 +339,10 @@ HealthCareAI/
 │   ├── processed/cleaned.parquet # Cleaned dataset (auto-generated on startup)
 │   └── data-dictionary.md        # Column reference for all SRAG fields
 │
-├── docs/
-│   └── architecture.pdf          # System architecture diagram (required deliverable)
-│
+├── docs/                         # Documentation and diagrams
+├── architecture.pdf              # System architecture diagram
+├── architecture.png              # Architecture diagram (PNG export)
+├── docker-compose.yml            # Orchestrates backend + frontend containers
 ├── .env                          # API keys (never commit to version control)
 ├── .env.example                  # Template for required environment variables
 ├── .gitignore
@@ -343,12 +353,35 @@ HealthCareAI/
 
 ## Setup & Running
 
-### Requirements
+### Option A — Docker (Recommended)
+
+The easiest way to run the full stack. Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+
+```bash
+# Copy and configure your environment variables first
+cp .env.example .env
+# Edit .env to add your LLM API key
+
+# Build and start both services
+docker compose up --build
+```
+
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:5173 |
+| Backend API | http://localhost:8000 |
+| API Docs (Swagger) | http://localhost:8000/docs |
+
+---
+
+### Option B — Manual Setup
+
+#### Requirements
 
 - **Node.js** v20+ / npm
 - **Python** 3.12+
 
-### 1. Environment Variables
+#### 1. Environment Variables
 
 Copy the template and configure your API keys:
 
@@ -367,7 +400,7 @@ ANTHROPIC_API_KEY=your_key_here
 
 > The `mock` provider generates a deterministic placeholder report without calling any LLM — useful for development and testing.
 
-### 2. Backend Setup
+#### 2. Backend Setup
 
 ```bash
 # Create and activate a virtual environment
@@ -389,7 +422,7 @@ python -m uvicorn server.main:app --reload
 The backend will be available at `http://localhost:8000`.  
 Interactive API docs: `http://localhost:8000/docs`
 
-### 3. Frontend Setup
+#### 3. Frontend Setup
 
 ```bash
 cd app
@@ -398,20 +431,6 @@ npm run dev
 ```
 
 The web application will open at `http://localhost:5173`.
-
----
-
-## Mock Data Generator
-
-If you want to re-generate the synthetic DATASUS dataset (useful for development when the real CSV is unavailable), run:
-
-```bash
-python server/utils/generate_mock_data.py
-```
-
-This generates `data/raw/srag.csv` with synthetic patient records using realistic distributions. The real dataset can be downloaded from [Open DATASUS SIVEP-Gripe](https://opendatasus.saude.gov.br/dataset/srag-2021-a-2024).
-
-> **Note**: The mock dataset has 6 columns and ~10,000 rows. The real SIVEP-Gripe dataset has ~120 columns and 165,000+ rows. The data cleaning pipeline in `data_loader.py` is designed for the real dataset.
 
 ---
 
@@ -427,5 +446,5 @@ This project prioritizes **AI Engineering best practices** over maximizing LLM u
 | **Guardrails** | SQL blocklist, LLM prompt constraints, structured error returns |
 | **Transparency** | Raw SQL and news sources are displayed in the frontend |
 | **No PII exposure** | Only aggregated statistics reach the LLM and API response |
-| **Graceful degradation** | Every tool returns `{"success": false, "reason": "..."}` on failure |
+| **Graceful degradation** | Every tool returns `{"success": false, "reason": "..."}` on failure — no fabricated fallbacks |
 | **Provider abstraction** | LLM backend is swappable via `LLM_PROVIDER` env var; mock fallback for tests |
