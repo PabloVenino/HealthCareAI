@@ -393,9 +393,8 @@ Required keys (at least one LLM key):
 
 ```env
 LLM_PROVIDER=gemini           # gemini | openai | anthropic | mock
-GEMINI_API_KEY=your_key_here
-OPENAI_API_KEY=your_key_here
-ANTHROPIC_API_KEY=your_key_here
+API_KEY=your_key_here
+MODEL=LLM_Model_goes_here
 ```
 
 > The `mock` provider generates a deterministic placeholder report without calling any LLM — useful for development and testing.
