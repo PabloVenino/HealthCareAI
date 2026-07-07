@@ -49,7 +49,8 @@ Each field is classified as one of the following:
 
 | CSV Field | Friendly Name | Index | Status | Description |
 |------------|---------------|--------|--------|-------------|
-| SG_UF | State | 21 | Core | Brazilian state |
+| SG_UF | State | 21 | Core | Brazilian state of residence |
+| SG_UF_NOT | State of Notification | 5 | Secondary | State where the case was notified (may differ from residence) |
 | ID_MUNICIP | Municipality | 8 | Core | Municipality name |
 | ID_REGIONA | Health Region | 6 | Secondary | Health region |
 

@@ -33,6 +33,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from fastapi import Request, HTTPException
+from fastapi.responses import JSONResponse
+
+@app.middleware("http")
+async def error_handling_middleware(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as exc:
+        if isinstance(exc, HTTPException):
+            raise exc
+        print(f"Middleware caught exception: {exc}")
+        # Specifically handle our configuration errors or quotas as 400s
+        status_code = 400 if isinstance(exc, ValueError) else 500
+        return JSONResponse(
+            status_code=status_code,
+            content={"detail": str(exc)}
+        )
+
+
 # Ensure static charts directory is mounted
 static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "static"))
 os.makedirs(static_dir, exist_ok=True)
