@@ -64,40 +64,58 @@ def validate_node(state: AgentState) -> Dict[str, Any]:
 
 def sql_node(state: AgentState) -> Dict[str, Any]:
     """
-    Generates and executes SQL query against DuckDB.
+    Generates and executes a parameterised SQL query against DuckDB.
+
+    SECURITY: Filter values (dates, UF) are passed as a params tuple via DuckDB's
+    native parameterised binding. They are NEVER interpolated into the SQL string,
+    eliminating SQL injection at the structural level.
     """
     logs = state.get("execution_log", [])
-    logs.append("SQL Node: Generating query for DuckDB")
-    
+    logs.append("SQL Node: Generating parameterised query for DuckDB")
+
     filters = state.get("filters", {})
     start_date = filters.get("start_date")
     end_date = filters.get("end_date")
     uf = filters.get("uf")
-    
-    where_clause = f"DT_NOTIFIC BETWEEN '{start_date}' AND '{end_date}'"
+
+    # Static query template — no user values are ever embedded in this string.
     if uf and uf != "ALL":
-        where_clause += f" AND SG_UF_NOT = '{uf}'"
-        
-    sql_query = f"SELECT * FROM srag WHERE {where_clause} ORDER BY DT_NOTIFIC ASC;"
-    
-    logs.append(f"SQL Node: Executing query: {sql_query}")
+        sql_template = (
+            "SELECT * FROM srag "
+            "WHERE DT_NOTIFIC BETWEEN ? AND ? "
+            "AND SG_UF_NOT = ? "
+            "ORDER BY DT_NOTIFIC ASC;"
+        )
+        params = (start_date, end_date, uf)
+    else:
+        sql_template = (
+            "SELECT * FROM srag "
+            "WHERE DT_NOTIFIC BETWEEN ? AND ? "
+            "ORDER BY DT_NOTIFIC ASC;"
+        )
+        params = (start_date, end_date)
+
+    logs.append(
+        f"SQL Node: Executing parameterised query (template: {sql_template!r}, "
+        f"params: {params})"
+    )
     tool = SQLTool()
-    res = tool.run_query(sql_query)
-    
+    res = tool.run_query(sql_template, params)
+
     if not res.get("success"):
         logs.append(f"SQL Node: Error running query: {res.get('error')}")
         return {
-            "sql_query": sql_query,
+            "sql_query": sql_template,
             "sql_results": [],
             "validation_error": f"SQL query failed: {res.get('error')}",
             "execution_log": logs
         }
-    
+
     rows = res.get("rows", [])
     logs.append(f"SQL Node: Query executed successfully. Retrieved {len(rows)} cases.")
-    
+
     return {
-        "sql_query": sql_query,
+        "sql_query": sql_template,
         "sql_results": rows,
         "execution_log": logs
     }

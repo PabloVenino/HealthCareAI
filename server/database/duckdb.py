@@ -17,7 +17,17 @@ class DuckDBClient:
     def execute_query(self, query: str, params: tuple = None) -> List[Dict[str, Any]]:
         """
         Executes a query and returns the rows as a list of dictionaries.
+
+        SECURITY: Always pass user-supplied values via `params` (parameterised binding).
+        Never interpolate them directly into the query string.
+        If the query contains `?` placeholders but no params are provided, a ValueError
+        is raised immediately to prevent accidental unparameterised execution.
         """
+        if "?" in query and params is None:
+            raise ValueError(
+                "Security violation: query contains '?' placeholders but no params tuple "
+                "was provided. Pass all user-supplied values through the params argument."
+            )
         try:
             if params:
                 cursor = self.conn.execute(query, params)

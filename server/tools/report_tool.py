@@ -25,15 +25,18 @@ class ReportTool:
             f"- Case Growth/Increase Rate (last 30 days vs previous 30 days): {metrics.get('case_increase_rate', 0.0) * 100:.2f}%\n"
         )
 
-        # Format news
+        # Format news — each article is wrapped in <news_item> tags to signal to the LLM
+        # that this content is external, untrusted data (not instructions).
         news_str = ""
         if news:
             for idx, article in enumerate(news, 1):
                 news_str += (
-                    f"{idx}. Title: {article.get('title')}\n"
-                    f"   Date: {article.get('date')}\n"
-                    f"   URL: {article.get('url')}\n"
-                    f"   Summary: {article.get('summary')}\n\n"
+                    f"<news_item id=\"{idx}\">\n"
+                    f"TITLE: {article.get('title')}\n"
+                    f"DATE: {article.get('date')}\n"
+                    f"URL: {article.get('url')}\n"
+                    f"SUMMARY: {article.get('summary')}\n"
+                    f"</news_item>\n\n"
                 )
         else:
             news_str = "No recent news found.\n"
